@@ -1,6 +1,6 @@
-# This scripts retrieves a list of all workstations from netbox,
+# This script retrieves a list of all workstations from netbox,
 # pings those workstations, and those not responding to ping will have their status changed to "offline"
-# Configure to run on a schedule
+# Configure this to run on a schedule
 
 # api info
 $api_root = "https://<NETBOX_DOMAIN_NAME>/api"
