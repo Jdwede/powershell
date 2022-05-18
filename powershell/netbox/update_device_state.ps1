@@ -1,4 +1,4 @@
-# This script retrieves a list of all workstations from netbox,
+# This script retrieves a list of all workstations (by role name = Workstation) from netbox,
 # pings those workstations, and those not responding to ping will have their status changed to "offline"
 # Configure this to run on a schedule
 
