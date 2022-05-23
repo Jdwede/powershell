@@ -38,11 +38,15 @@ function Ping-Workstations($workstations)
 }
 
 # Update the active/inactive status of workstations on netbox depending on their PingResult
-function Update-NetboxWorkstationStatus($workstations, $headers)
+function Update-NetboxWorkstationStatus($workstations, $api_root, $headers)
 {
     Write-Host "Updating netbox workstation status:"
+
     foreach($workstation in $workstations)
     {
+        $current_workstation_status = Invoke-RestMethod -Method GET "$($api_root)/dcim/devices/?name=$($workstation.name)" -Headers $headers     
+
+        # If workstation responds to ping, update status on netbox
         if($workstation.PingResult -eq "Success")
         {
             Write-Host "[ " -NoNewline
@@ -53,8 +57,20 @@ function Update-NetboxWorkstationStatus($workstations, $headers)
             $device = @{
                 status = "active"
             }
+            $deviceJson = $device | ConvertTo-Json -Depth 20
+            $set = Invoke-RestMethod -Uri $workstation.url -Method Patch -ContentType 'application/json' -Headers $headers -Body $deviceJson -DisableKeepAlive -UseBasicParsing
         }
-        else
+        # If workstation is already offline in netbox and ping fails, don't update status
+        elseif(($current_workstation_status.results.status.value -eq "offline") -and ($workstation.PingResult -eq "Failed"))
+        {
+            Write-Host "[" -NoNewline
+            Write-Host -ForegroundColor Yellow "SKIP" -NoNewline
+            Write-Host "] " -NoNewline
+            Write-Host "$($workstation.name) still offline. " -NoNewLine
+            Write-Host -ForegroundColor Yellow "Skipping."
+        }
+        # If workstation is online in netbox and ping fails, update status to offline
+        elseif(($current_workstation_status.results.status.value -eq "active") -and ($workstation.PingResult -eq "Failed"))
         {
             Write-Host "[ " -NoNewline
             Write-Host -ForegroundColor Green "OK" -NoNewline
@@ -64,10 +80,11 @@ function Update-NetboxWorkstationStatus($workstations, $headers)
             $device = @{
                 status = "offline"
             }
+            $deviceJson = $device | ConvertTo-Json -Depth 20
+            $set = Invoke-RestMethod -Uri $workstation.url -Method Patch -ContentType 'application/json' -Headers $headers -Body $deviceJson -DisableKeepAlive -UseBasicParsing
         }
-        $deviceJson = $device | ConvertTo-Json -Depth 20
-        $set = Invoke-RestMethod -Uri $workstation.url -Method Patch -ContentType 'application/json' -Headers $headers -Body $deviceJson -DisableKeepAlive -UseBasicParsing
+        
     }
 }
 
-Update-NetboxWorkstationStatus (Ping-Workstations(Get-NetboxWorkstations $api_root $headers)) $headers
+Update-NetboxWorkstationStatus (Ping-Workstations(Get-NetboxWorkstations $api_root $headers)) $api_root $headers
